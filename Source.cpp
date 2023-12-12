@@ -267,7 +267,7 @@ void removeShape(int index) {
         shapesCount--;
     }
 }
-
+/*
 void saveShapesToFile(char* filename) {
     FILE* file = fopen(filename, "wb");
     if (file == NULL) {
@@ -313,7 +313,7 @@ void loadShapesFromFile(char* filename) {
 
     fclose(file);
 }
-
+*/
 Shape detectShape(Shape drawnShape) {
     float width = fabs(drawnShape.start.x - drawnShape.end.x);
     float height = fabs(drawnShape.start.y - drawnShape.end.y);
