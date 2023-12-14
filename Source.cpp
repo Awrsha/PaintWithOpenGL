@@ -1,19 +1,16 @@
-// Include necessary libraries
 #include <GL/freeglut.h>
 #include <GL/glu.h>
 #include <cstdio>
 #include <cmath>
 #include <cstdlib>
 
-// Define maximum number of shapes  
 const int MAX_SHAPES = 100;
 
-// Define PI if not already defined
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+#define _CRT_SECURE_NO_WARNINGS
 #endif
 
-// Enum to represent different shape types
 enum ShapeType {
     LINE = 1,
     RECTANGLE,
@@ -23,23 +20,22 @@ enum ShapeType {
     ELLIPSE
 };
 
-// Structure for a point in 2D space
 struct Point {
     float x, y;
 };
 
-// Structure for a shape
 struct Shape {
     Point start, end;
     float r, g, b;
     ShapeType type;
     float thickness;
-    int isFilled; // New field for filling shapes  
+    int isFilled;
 };
 
-// Global variables
 Shape shapes[MAX_SHAPES];
 int shapesCount = 0;
+Shape undoStack[MAX_SHAPES];
+int undoCount = 0;
 char filename[256];
 Point startDrag, endDrag;
 int isMouseDragging = 0;
@@ -54,16 +50,6 @@ int isDrawingPencil = 0;
 float startX, startY, endX, endY;
 Shape currentShape;
 
-// Function prototypes  
-void drawCircle(Point center, float radius);
-Shape convertLineToCircle(Shape lineShape);
-Shape convertLineToRectangle(Shape drawnShape);
-void drawShape(Shape shape);
-void drawPencilStroke(int x, int y);
-void saveShapesToFile(const char* filename);
-void loadShapesFromFile(const char* filename);
-
-// Function to draw a circle
 void drawCircle(Point center, float radius) {
     int segments = 100;
     glBegin(GL_LINE_LOOP);
@@ -76,12 +62,10 @@ void drawCircle(Point center, float radius) {
     glEnd();
 }
 
-// Function to convert a line to a circle shape
 Shape convertLineToCircle(Shape lineShape) {
     float lineLength = sqrt(pow(lineShape.end.x - lineShape.start.x, 2) + pow(lineShape.end.y - lineShape.start.y, 2));
-    float circleRadius = lineLength / 2; // Assume circle radius is half the length of the line
+    float circleRadius = lineLength / 2;
 
-    // Find the center point of the circle (midpoint of the line)
     float centerX = (lineShape.start.x + lineShape.end.x) / 2;
     float centerY = (lineShape.start.y + lineShape.end.y) / 2;
 
@@ -91,22 +75,21 @@ Shape convertLineToCircle(Shape lineShape) {
     circleShape.end.x = centerX + circleRadius;
     circleShape.end.y = centerY + circleRadius;
     circleShape.type = CIRCLE;
-    circleShape.r = lineShape.r; // You might want to adjust these attributes
+    circleShape.r = lineShape.r;
     circleShape.g = lineShape.g;
     circleShape.b = lineShape.b;
     circleShape.thickness = lineShape.thickness;
-    circleShape.isFilled = 0; // Initially not filled
+    circleShape.isFilled = 0;
 
     return circleShape;
 }
-// Function to convert a line to a rectangle shape
+
 Shape convertLineToRectangle(Shape drawnShape) {
     float width = fabs(drawnShape.start.x - drawnShape.end.x);
     float height = fabs(drawnShape.start.y - drawnShape.end.y);
 
-    // Consider a line as a rectangle with some width and small height
-    float minWidth = 5.0;  // You can adjust this value as needed
-    float minHeight = 10.0; // You can adjust this value as needed
+    float minWidth = 5.0;
+    float minHeight = 10.0;
 
     if (width < minWidth) {
         width = minWidth;
@@ -121,7 +104,7 @@ Shape convertLineToRectangle(Shape drawnShape) {
 
     return drawnShape;
 }
-// Function to draw a specific shape based on its type
+
 void drawShape(Shape shape) {
     glColor3f(shape.r, shape.g, shape.b);
     glLineWidth(shape.thickness);
@@ -157,7 +140,6 @@ void drawShape(Shape shape) {
         Point center = { (shape.start.x + shape.end.x) / 2, (shape.start.y + shape.end.y) / 2 };
         drawCircle(center, radius);
     }
-    // Triangle
     else if (shape.type == TRIANGLE) {
         glBegin(GL_LINE_LOOP);
         glVertex2f(shape.start.x, shape.start.y + (shape.end.y - shape.start.y));
@@ -165,7 +147,6 @@ void drawShape(Shape shape) {
         glVertex2f(shape.end.x, shape.start.y + (shape.end.y - shape.start.y));
         glEnd();
     }
-    // Square
     else if (shape.type == SQUARE) {
         glBegin(GL_LINE_LOOP);
         glVertex2f(shape.start.x, shape.start.y);
@@ -174,10 +155,8 @@ void drawShape(Shape shape) {
         glVertex2f(shape.start.x, shape.end.y);
         glEnd();
     }
-    // Ellipse
     else if (shape.type == ELLIPSE) {
         if (shape.isFilled) {
-            // Fill ellipse
             glColor3f(shape.r, shape.g, shape.b);
             float radiusX = fabs(shape.end.x - shape.start.x) / 2;
             float radiusY = fabs(shape.end.y - shape.start.y) / 2;
@@ -192,7 +171,6 @@ void drawShape(Shape shape) {
             glEnd();
         }
         else {
-            // Draw unfilled ellipse
             glColor3f(shape.r, shape.g, shape.b);
             float radiusX = fabs(shape.end.x - shape.start.x) / 2;
             float radiusY = fabs(shape.end.y - shape.start.y) / 2;
@@ -208,47 +186,13 @@ void drawShape(Shape shape) {
     }
 }
 
-void display() {
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluOrtho2D(-250, 250, -250, 250);
-
-    glClearColor(bgRed, bgGreen, bgBlue, 1.0);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    for (int i = 0; i < shapesCount; ++i) {
-        drawShape(shapes[i]);
-    }
-    // Additional code for Line Drawer tool
-    if (isDrawingLine) {
-        glLineWidth(lineThickness);
-        glColor3f(red, green, blue);
-        glBegin(GL_LINES);
-        glVertex2f(startX, startY);
-        glVertex2f(endX, endY);
-        glEnd();
-    }
-
-    // Additional code for Pencil tool
-    if (isDrawingPencil) {
-        drawPencilStroke(endX, endY);
-    }
-
-    glFlush();
-}
-
-// Function to draw a single stroke of the pencil
 void drawPencilStroke(int x, int y) {
-    // Code to draw pencil stroke
-    // You can customize this based on your pencil drawing logic
-    // For example, you can use GL_POINTS or GL_LINE_STRIP
     glPointSize(lineThickness);
     glColor3f(red, green, blue);
     glBegin(GL_POINTS);
     glVertex2f(x, y);
     glEnd();
 }
-
 
 void addShapeToList(Shape shape) {
     if (shapesCount < MAX_SHAPES) {
@@ -267,60 +211,13 @@ void removeShape(int index) {
         shapesCount--;
     }
 }
-/*
-void saveShapesToFile(char* filename) {
-    FILE* file = fopen(filename, "wb");
-    if (file == NULL) {
-        printf("Error opening file!\n");
-        return;
-    }
 
-    for (int i = 0; i < shapesCount; ++i) {
-        Shape shape = shapes[i];
-        // Fix format string warnings
-        fprintf((FILE*)file, "%d %f %f %f %f %f %f %f %f %d\n",
-            shape.type,
-            shape.start.x,
-            shape.start.y,
-            shape.end.x, 
-            shape.end.y, 
-            shape.r, 
-            shape.g, 
-            shape.b, 
-            shape.thickness, 
-            shape.isFilled);
-    }
-
-    fclose(file);
-}
-
-void loadShapesFromFile(char* filename) {
-    FILE* file = fopen(filename, "rb");
-    if (file == NULL) {
-        printf("Error opening file!\n");
-        return;
-    }
-
-    shapesCount = 0;
-    while (!feof(file) && shapesCount < MAX_SHAPES) {
-        Shape shape;
-        int type, filled;
-        fscanf((FILE*)file, "%d %f %f %f %f %f %f %f %f %f %d\n", &type, &shape.start.x, &shape.start.y, &shape.end.x, &shape.end.y, &shape.r, &shape.g, &shape.b, &shape.thickness, &filled);
-        shape.type = (ShapeType)type;
-        shape.isFilled = filled;
-        shapes[shapesCount++] = shape;
-    }
-
-    fclose(file);
-}
-*/
 Shape detectShape(Shape drawnShape) {
     float width = fabs(drawnShape.start.x - drawnShape.end.x);
     float height = fabs(drawnShape.start.y - drawnShape.end.y);
 
     float aspectRatio = width / height;
 
-    // Simplified criteria for detecting a square or rectangle
     if (aspectRatio >= 0.9 && aspectRatio <= 1.1) {
         if (fabs(width - height) < 10.0) {
             drawnShape.type = SQUARE;
@@ -330,16 +227,12 @@ Shape detectShape(Shape drawnShape) {
         }
     }
 
-    // Check if the shape is a line and convert it to a rectangle
     if (drawnShape.type == LINE) {
         drawnShape = convertLineToRectangle(drawnShape);
     }
 
-    // Add more shape recognition checks here
-
     return drawnShape;
 }
-
 
 void mouseClick(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
@@ -357,7 +250,7 @@ void mouseClick(int button, int state, int x, int y) {
         currentShape.b = blue;
         currentShape.type = currentShapeType;
         currentShape.thickness = lineThickness;
-        currentShape.isFilled = 0; // Initially not filled
+        currentShape.isFilled = 0;
 
         isDrawingShape = 1;
     }
@@ -389,18 +282,16 @@ void mouseClick(int button, int state, int x, int y) {
 
 void mouseMove(int x, int y) {
     if (isDrawingLine) {
-        // Code to draw a line dynamically as the mouse moves
         endX = x - 250;
         endY = 250 - y;
-        glutPostRedisplay(); // Trigger display function
+        glutPostRedisplay();
     }
 
     if (isDrawingPencil) {
-        // Code to draw pencil strokes dynamically as the mouse moves
         int currentX = x - 250;
         int currentY = 250 - y;
         drawPencilStroke(currentX, currentY);
-        glutPostRedisplay(); // Trigger display function
+        glutPostRedisplay();
     }
 }
 
@@ -409,18 +300,6 @@ void reshape(int width, int height) {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     gluOrtho2D(-250, 250, -250, 250);
-}
-
-Shape undoStack[MAX_SHAPES]; // Stack for undo operations
-int undoCount = 0;
-
-void addToUndoStack(Shape shape) {
-    if (undoCount < MAX_SHAPES) {
-        undoStack[undoCount++] = shape;
-    }
-    else {
-        printf("Undo limit reached!");
-    }
 }
 
 Shape popFromUndoStack() {
@@ -436,7 +315,7 @@ Shape popFromUndoStack() {
 
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
-    case 'u': // Undo
+    case 'u':
     {
         Shape lastAction = popFromUndoStack();
         if (lastAction.type != 0) {
@@ -450,6 +329,8 @@ void keyboard(unsigned char key, int x, int y) {
         break;
     case 'x':
         red = 0.0; green = 0.0; blue = 0.0; break;
+    case 'z':
+        red = 1.0; green = 1.0; blue = 1.0; break;
     case 'r':
         red = 1.0; green = 0.0; blue = 0.0; break;
     case 'g':
@@ -468,52 +349,66 @@ void keyboard(unsigned char key, int x, int y) {
         currentShapeType = SQUARE; break;
     case '6':
         currentShapeType = ELLIPSE; break;
-    case 'q': // Change background color to red
-        bgRed = 1.0; bgGreen = 0.0; bgBlue = 0.0; break;
-    case 'w': // Change background color to green
-        bgRed = 0.0; bgGreen = 1.0; bgBlue = 0.0; break;
-    case 'e': // Change background color to blue
-        bgRed = 0.0; bgGreen = 0.0; bgBlue = 1.0; break;
-    case 'z': // Change background color to white
+    case 'q':
         bgRed = 1.0; bgGreen = 1.0; bgBlue = 1.0; break;
-    case '+': // Increase line thickness
-        lineThickness += 0.5; break;
-    case '-': // Decrease line thickness
-        lineThickness = fmax(1.0, lineThickness - 0.5); break;
-    case 'f': // Toggle fill for the last drawn shape
-        if (shapesCount > 0) {
-            shapes[shapesCount - 1].isFilled = !shapes[shapesCount - 1].isFilled;
+    case '+':
+        lineThickness += 1.0;
+        break;
+    case '-':
+        if (lineThickness > 1.0) {
+            lineThickness -= 1.0;
         }
         break;
-
-    case 's': // Save shapes to a file
-        saveShapesToFile("shapes.txt");
+    case 'c':
+        shapesCount = 0;
         break;
-
-    case 'l': // Load shapes from a file
-        loadShapesFromFile("shapes.txt");
+    case 27: // ESC key
+        exit(0);
         break;
     }
+
+    glutPostRedisplay();
 }
-// Entry point
+
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Draw background rectangle
+    glColor3f(bgRed, bgGreen, bgBlue);
+    glBegin(GL_QUADS);
+    glVertex2f(-250, -250);
+    glVertex2f(250, -250);
+    glVertex2f(250, 250);
+    glVertex2f(-250, 250);
+    glEnd();
+
+    // Draw shapes
+    for (int i = 0; i < shapesCount; ++i) {
+        drawShape(shapes[i]);
+    }
+
+    // Draw current shape
+    if (isDrawingShape) {
+        drawShape(currentShape);
+    }
+
+    glutSwapBuffers();
+}
+
 int main(int argc, char** argv) {
-    // GLUT initialization and window setup...
-    // Setting up callbacks...
-
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(500, 500);
-    glutInitWindowPosition(100, 100);
+    glutCreateWindow("Simple Paint");
 
-    glutCreateWindow("Paint Project");
     glClearColor(1.0, 1.0, 1.0, 1.0);
 
-    glutReshapeFunc(reshape);
     glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
     glutMouseFunc(mouseClick);
+    glutMotionFunc(mouseMove);
     glutKeyboardFunc(keyboard);
 
     glutMainLoop();
-
     return 0;
 }
