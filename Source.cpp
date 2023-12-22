@@ -1,16 +1,15 @@
-#include <GL/freeglut.h>
-#include <GL/glu.h>
-#include <cstdio>
-#include <cmath>
-#include <cstdlib>
+#include <GL/freeglut.h>  // OpenGL Utility Toolkit for creating OpenGL applications
+#include <GL/glu.h>  // OpenGL Utility Library for OpenGL functionality
+#include <cstdio>  // Standard input/output operations
+#include <cmath>  // Mathematical functions
+#include <cstdlib>  // General utilities library
 
-const int MAX_SHAPES = 100;
+// Constants
+const int MAX_SHAPES = 100;  // Maximum number of shapes supported
+const float M_PI = 3.14159265358979323846;  // Pi constant
+#define _CRT_SECURE_NO_WARNINGS  // Suppress warnings for certain functions
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#define _CRT_SECURE_NO_WARNINGS
-#endif
-
+// Enumeration for different shape types
 enum ShapeType {
     LINE = 1,
     RECTANGLE,
@@ -20,18 +19,22 @@ enum ShapeType {
     ELLIPSE
 };
 
+// Structure to represent a 2D point
 struct Point {
     float x, y;
 };
 
+// Structure to represent a shape
 struct Shape {
-    Point start, end;
-    float r, g, b;
-    ShapeType type;
-    float thickness;
-    int isFilled;
+    Point start, end;  // Start and end points of the shape
+    float r, g, b;  // Color components (red, green, blue)
+    ShapeType type;  // Type of the shape
+    float thickness;  // Thickness of lines for the shape
+    int isFilled;  // Flag to indicate if the shape is filled
 };
 
+
+// Array of shapes and related variables
 Shape shapes[MAX_SHAPES];
 int shapesCount = 0;
 Shape undoStack[MAX_SHAPES];
@@ -39,10 +42,10 @@ int undoCount = 0;
 char filename[256];
 Point startDrag, endDrag;
 int isMouseDragging = 0;
-float red = 0.0, green = 0.0, blue = 0.0;
-float bgRed = 1.0, bgGreen = 1.0, bgBlue = 1.0;
+float red = 0.0f, green = 0.0f, blue = 0.0f;
+float bgRed = 1.0f, bgGreen = 1.0f, bgBlue = 1.0f;
 ShapeType currentShapeType = LINE;
-float lineThickness = 1.0;
+float lineThickness = 1.0f;
 int isDrawingShape = 0;
 int isDrawingLine = 0;
 int isDrawingPencil = 0;
@@ -50,24 +53,28 @@ int isDrawingPencil = 0;
 float startX, startY, endX, endY;
 Shape currentShape;
 
+// Function to draw a circle using OpenGL
 void drawCircle(Point center, float radius) {
+    // Drawing a circle using GL_LINE_LOOP
     int segments = 100;
     glBegin(GL_LINE_LOOP);
     for (int i = 0; i < segments; i++) {
-        float theta = 2.0f * M_PI * float(i) / float(segments);
+        float theta = 2.0f * static_cast<float>(M_PI) * static_cast<float>(i) / static_cast<float>(segments);
         float x = radius * cosf(theta);
         float y = radius * sinf(theta);
-        glVertex2f(center.x + x, center.y + y);
+        glVertex2f(static_cast<GLfloat>(center.x + x), static_cast<GLfloat>(center.y + y));
     }
     glEnd();
 }
 
+// Function to convert a line shape to a circle shape
 Shape convertLineToCircle(Shape lineShape) {
-    float lineLength = sqrt(pow(lineShape.end.x - lineShape.start.x, 2) + pow(lineShape.end.y - lineShape.start.y, 2));
-    float circleRadius = lineLength / 2;
+    // Logic to convert a line shape to a circle shape
+    float lineLength = sqrtf(powf(lineShape.end.x - lineShape.start.x, 2) + powf(lineShape.end.y - lineShape.start.y, 2));
+    float circleRadius = lineLength / 2.0f;
 
-    float centerX = (lineShape.start.x + lineShape.end.x) / 2;
-    float centerY = (lineShape.start.y + lineShape.end.y) / 2;
+    float centerX = (lineShape.start.x + lineShape.end.x) / 2.0f;
+    float centerY = (lineShape.start.y + lineShape.end.y) / 2.0f;
 
     Shape circleShape;
     circleShape.start.x = centerX - circleRadius;
@@ -84,12 +91,14 @@ Shape convertLineToCircle(Shape lineShape) {
     return circleShape;
 }
 
+// Function to convert a line shape to a rectangle shape
 Shape convertLineToRectangle(Shape drawnShape) {
-    float width = fabs(drawnShape.start.x - drawnShape.end.x);
-    float height = fabs(drawnShape.start.y - drawnShape.end.y);
+    // Logic to convert a line shape to a rectangle shape
+    float width = fabsf(drawnShape.start.x - drawnShape.end.x);
+    float height = fabsf(drawnShape.start.y - drawnShape.end.y);
 
-    float minWidth = 5.0;
-    float minHeight = 10.0;
+    float minWidth = 5.0f;
+    float minHeight = 10.0f;
 
     if (width < minWidth) {
         width = minWidth;
@@ -105,7 +114,9 @@ Shape convertLineToRectangle(Shape drawnShape) {
     return drawnShape;
 }
 
+// Function to draw a specific shape using OpenGL
 void drawShape(Shape shape) {
+    // Drawing different shapes using OpenGL based on their types
     glColor3f(shape.r, shape.g, shape.b);
     glLineWidth(shape.thickness);
 
@@ -136,8 +147,8 @@ void drawShape(Shape shape) {
         }
     }
     else if (shape.type == CIRCLE) {
-        float radius = fmin(fabs(shape.end.x - shape.start.x), fabs(shape.end.y - shape.start.y)) / 2;
-        Point center = { (shape.start.x + shape.end.x) / 2, (shape.start.y + shape.end.y) / 2 };
+        float radius = fminf(fabsf(shape.end.x - shape.start.x), fabsf(shape.end.y - shape.start.y)) / 2.0f;
+        Point center = { (shape.start.x + shape.end.x) / 2.0f, (shape.start.y + shape.end.y) / 2.0f };
         drawCircle(center, radius);
     }
     else if (shape.type == TRIANGLE) {
@@ -186,15 +197,20 @@ void drawShape(Shape shape) {
     }
 }
 
+// Function to draw a pencil stroke
 void drawPencilStroke(int x, int y) {
+    // Drawing a pencil stroke at the specified coordinates
     glPointSize(lineThickness);
     glColor3f(red, green, blue);
     glBegin(GL_POINTS);
     glVertex2f(x, y);
     glEnd();
+    glutPostRedisplay();
 }
 
+// Function to add a shape to the shapes list
 void addShapeToList(Shape shape) {
+    // Adding a shape to the shapes list if space is available
     if (shapesCount < MAX_SHAPES) {
         shapes[shapesCount++] = shape;
     }
@@ -203,7 +219,9 @@ void addShapeToList(Shape shape) {
     }
 }
 
+// Function to remove a shape from the shapes list at a specific index
 void removeShape(int index) {
+    // Removing a shape from the shapes list at the specified index
     if (index >= 0 && index < shapesCount) {
         for (int i = index; i < shapesCount - 1; ++i) {
             shapes[i] = shapes[i + 1];
@@ -212,7 +230,9 @@ void removeShape(int index) {
     }
 }
 
+// Function to detect and classify a drawn shape
 Shape detectShape(Shape drawnShape) {
+    // Detecting and classifying the drawn shape (e.g., rectangle, square)
     float width = fabs(drawnShape.start.x - drawnShape.end.x);
     float height = fabs(drawnShape.start.y - drawnShape.end.y);
 
@@ -234,7 +254,9 @@ Shape detectShape(Shape drawnShape) {
     return drawnShape;
 }
 
+// Callback function for mouse click events
 void mouseClick(int button, int state, int x, int y) {
+    // Handling mouse click events (e.g., drawing shapes, removing shapes)
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
         startX = x - 250;
         startY = 250 - y;
@@ -280,7 +302,9 @@ void mouseClick(int button, int state, int x, int y) {
     }
 }
 
+// Callback function for mouse movement events
 void mouseMove(int x, int y) {
+    // Handling mouse movement events (e.g., drawing lines, pencil strokes)
     if (isDrawingLine) {
         endX = x - 250;
         endY = 250 - y;
@@ -295,14 +319,18 @@ void mouseMove(int x, int y) {
     }
 }
 
+// Callback function for window reshaping
 void reshape(int width, int height) {
+    // Reshaping the window and setting up the projection matrix
     glViewport(0, 0, width, height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     gluOrtho2D(-250, 250, -250, 250);
 }
 
+// Function to pop a shape from the undo stack
 Shape popFromUndoStack() {
+    // Popping a shape from the undo stack if available
     if (undoCount > 0) {
         return undoStack[--undoCount];
     }
@@ -313,7 +341,9 @@ Shape popFromUndoStack() {
     }
 }
 
+// Callback function for keyboard events
 void keyboard(unsigned char key, int x, int y) {
+    // Handling keyboard events (e.g., changing colors, shapes, undoing actions)
     switch (key) {
     case 'u':
     {
@@ -351,6 +381,15 @@ void keyboard(unsigned char key, int x, int y) {
         currentShapeType = ELLIPSE; break;
     case 'q':
         bgRed = 1.0; bgGreen = 1.0; bgBlue = 1.0; break;
+    case 'w':
+        bgRed = 1.0; bgGreen = 0.0; bgBlue = 0.0; break;
+        break;
+    case 'e':
+        bgRed = 0.0; bgGreen = 0.0; bgBlue = 1.0; break;
+        break;
+    case 't':
+        bgRed = 0.0; bgGreen = 1.0; bgBlue = 0.0; break;
+        break;
     case '+':
         lineThickness += 1.0;
         break;
@@ -362,7 +401,7 @@ void keyboard(unsigned char key, int x, int y) {
     case 'c':
         shapesCount = 0;
         break;
-    case 27: // ESC key
+    case 27:
         exit(0);
         break;
     }
@@ -370,10 +409,11 @@ void keyboard(unsigned char key, int x, int y) {
     glutPostRedisplay();
 }
 
+// Callback function to display content on the window
 void display() {
+    // Clearing the screen and setting background color
+    // Drawing shapes stored in the shapes list and the current shape being drawn
     glClear(GL_COLOR_BUFFER_BIT);
-
-    // Draw background rectangle
     glColor3f(bgRed, bgGreen, bgBlue);
     glBegin(GL_QUADS);
     glVertex2f(-250, -250);
@@ -395,7 +435,11 @@ void display() {
     glutSwapBuffers();
 }
 
+// Main function
 int main(int argc, char** argv) {
+    // Initializing GLUT and creating a window
+    // Setting up various callbacks for handling events
+    // Starting the main loop for the application
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(500, 500);
